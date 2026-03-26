@@ -1,0 +1,41 @@
+# Agent Proxy Configuration
+# Copy this file to agent-proxy.yaml and customize as needed
+
+# Server configuration
+server:
+  host: "127.0.0.1"  # Listen address (use 0.0.0.0 for all interfaces)
+  port: 4000          # Listen port
+  read_timeout: 30    # Request read timeout in seconds
+  idle_timeout: 120   # Connection idle timeout in seconds
+  max_connections: 1000  # Maximum concurrent connections
+
+# Authentication configuration
+auth:
+  method: "x-user-id"  # Authentication method: x-user-id, local, session, oidc, oauth2
+  allowed_user_ids: []  # Allowed user IDs for x-user-id method (empty = all allowed)
+  allowed_domains: []   # Allowed email domains for OIDC method
+
+# Token management configuration
+token:
+  encryption_key: ""  # AES-256 encryption key (base64 encoded, leave empty to auto-generate)
+  storage_path: "agent-proxy.db"  # SQLite database path
+  auto_refresh_minutes: 30  # Auto-refresh tokens before expiration
+
+# Routing configuration
+routing:
+  token_strategy: "round-robin"  # Token selection strategy: round-robin, weighted, priority
+  model_mappings: {}  # Custom model mappings (model_name -> provider_config)
+  retry_policy:
+    max_retries: 3      # Maximum retry attempts
+    initial_ms: 100     # Initial retry delay
+    max_delay_ms: 5000  # Maximum retry delay
+
+# Admin dashboard configuration
+admin:
+  password: ""  # Dashboard password (leave empty for no authentication)
+  lan_access: false  # Allow LAN access to dashboard
+
+# Logging configuration
+logging:
+  level: "info"  # Log level: debug, info, warn, error
+  format: "text"  # Log format: text, json

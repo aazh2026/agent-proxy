@@ -1,0 +1,37 @@
+# Binaries
+agent-proxy
+agent-proxy-*
+*.exe
+
+# Database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Configuration with secrets
+agent-proxy.yaml
+config.yaml
+*.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+/dist/
+/build/
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Dependencies
+vendor/
