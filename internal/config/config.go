@@ -10,12 +10,13 @@ import (
 )
 
 type Config struct {
-	Server  ServerConfig  `yaml:"server"`
-	Auth    AuthConfig    `yaml:"auth"`
-	Token   TokenConfig   `yaml:"token"`
-	Routing RoutingConfig `yaml:"routing"`
-	Admin   AdminConfig   `yaml:"admin"`
-	Logging LoggingConfig `yaml:"logging"`
+	Server    ServerConfig    `yaml:"server"`
+	Auth      AuthConfig      `yaml:"auth"`
+	Token     TokenConfig     `yaml:"token"`
+	Routing   RoutingConfig   `yaml:"routing"`
+	Providers ProvidersConfig `yaml:"providers"`
+	Admin     AdminConfig     `yaml:"admin"`
+	Logging   LoggingConfig   `yaml:"logging"`
 }
 
 type ServerConfig struct {
@@ -68,6 +69,19 @@ type LoggingConfig struct {
 	Format string `yaml:"format"`
 }
 
+type ProvidersConfig struct {
+	OpenAI    ProviderConfig `yaml:"openai"`
+	Anthropic ProviderConfig `yaml:"anthropic"`
+	Google    ProviderConfig `yaml:"google"`
+}
+
+type ProviderConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	BaseURL  string `yaml:"base_url"`
+	Timeout  int    `yaml:"timeout_seconds"`
+	MaxConns int    `yaml:"max_connections"`
+}
+
 func DefaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -95,6 +109,26 @@ func DefaultConfig() *Config {
 		Logging: LoggingConfig{
 			Level:  "info",
 			Format: "text",
+		},
+		Providers: ProvidersConfig{
+			OpenAI: ProviderConfig{
+				Enabled:  true,
+				BaseURL:  "https://api.openai.com/v1",
+				Timeout:  60,
+				MaxConns: 100,
+			},
+			Anthropic: ProviderConfig{
+				Enabled:  true,
+				BaseURL:  "https://api.anthropic.com/v1",
+				Timeout:  60,
+				MaxConns: 100,
+			},
+			Google: ProviderConfig{
+				Enabled:  true,
+				BaseURL:  "https://generativelanguage.googleapis.com/v1beta",
+				Timeout:  60,
+				MaxConns: 100,
+			},
 		},
 	}
 }

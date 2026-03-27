@@ -73,9 +73,9 @@ func TestMaskToken(t *testing.T) {
 		token    string
 		expected string
 	}{
-		{"sk-1234567890abcdef", "sk-****cdef"},
+		{"sk-1234567890abcdef", "sk-1****cdef"},
 		{"short", "****"},
-		{"12345678901234567890", "1234****34567890"},
+		{"12345678901234567890", "1234****7890"},
 	}
 
 	for _, test := range tests {

@@ -41,6 +41,52 @@ curl http://localhost:4000/health
 curl http://localhost:4000/metrics
 ```
 
+## Provider Setup
+
+### 1. Add Your API Tokens
+
+Before making requests, add your LLM provider API tokens:
+
+```bash
+# Add OpenAI token
+curl -X POST http://localhost:4000/tokens \
+  -H "Content-Type: application/json" \
+  -H "X-User-ID: alice" \
+  -d '{
+    "provider": "openai",
+    "type": "api_key",
+    "access_token": "sk-your-openai-key"
+  }'
+
+# Add Anthropic token
+curl -X POST http://localhost:4000/tokens \
+  -H "Content-Type: application/json" \
+  -H "X-User-ID: alice" \
+  -d '{
+    "provider": "anthropic",
+    "type": "api_key",
+    "access_token": "sk-ant-your-anthropic-key"
+  }'
+
+# Add Google Gemini token
+curl -X POST http://localhost:4000/tokens \
+  -H "Content-Type: application/json" \
+  -H "X-User-ID: alice" \
+  -d '{
+    "provider": "google",
+    "type": "api_key",
+    "access_token": "your-google-api-key"
+  }'
+```
+
+### 2. Make Requests
+
+Tokens are automatically routed based on model name:
+
+- `gpt-*` models → OpenAI
+- `claude-*` models → Anthropic
+- `gemini-*` models → Google
+
 ## Configuration
 
 Create a `agent-proxy.yaml` file:
@@ -57,6 +103,20 @@ token:
   encryption_key: ""  # Leave empty to auto-generate
   storage_path: "agent-proxy.db"
 
+providers:
+  openai:
+    enabled: true
+    base_url: "https://api.openai.com/v1"
+    timeout_seconds: 60
+  anthropic:
+    enabled: true
+    base_url: "https://api.anthropic.com/v1"
+    timeout_seconds: 60
+  google:
+    enabled: true
+    base_url: "https://generativelanguage.googleapis.com/v1beta"
+    timeout_seconds: 60
+
 logging:
   level: "info"
 ```
@@ -68,11 +128,30 @@ See `agent-proxy.example.yaml` for all configuration options.
 ### Chat Completions
 
 ```bash
+# OpenAI GPT-4
 curl -X POST http://localhost:4000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "X-User-ID: alice" \
   -d '{
     "model": "gpt-4",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+
+# Anthropic Claude
+curl -X POST http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-User-ID: alice" \
+  -d '{
+    "model": "claude-3-opus-20240229",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+
+# Google Gemini
+curl -X POST http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-User-ID: alice" \
+  -d '{
+    "model": "gemini-pro",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -121,6 +200,13 @@ curl -X POST http://localhost:4000/tokens \
 
 ```bash
 curl http://localhost:4000/tokens \
+  -H "X-User-ID: alice"
+```
+
+### Delete Token
+
+```bash
+curl -X DELETE "http://localhost:4000/tokens/delete?token_id=tk_..." \
   -H "X-User-ID: alice"
 ```
 

@@ -21,6 +21,24 @@ token:
   storage_path: "agent-proxy.db"  # SQLite database path
   auto_refresh_minutes: 30  # Auto-refresh tokens before expiration
 
+# LLM Provider configuration
+providers:
+  openai:
+    enabled: true
+    base_url: "https://api.openai.com/v1"
+    timeout_seconds: 60
+    max_connections: 100
+  anthropic:
+    enabled: true
+    base_url: "https://api.anthropic.com/v1"
+    timeout_seconds: 60
+    max_connections: 100
+  google:
+    enabled: true
+    base_url: "https://generativelanguage.googleapis.com/v1beta"
+    timeout_seconds: 60
+    max_connections: 100
+
 # Routing configuration
 routing:
   token_strategy: "round-robin"  # Token selection strategy: round-robin, weighted, priority

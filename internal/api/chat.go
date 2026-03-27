@@ -1,17 +1,32 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/openclaw/agent-proxy/internal/auth"
+	"github.com/openclaw/agent-proxy/internal/pipeline"
+	"github.com/openclaw/agent-proxy/internal/provider"
+	"github.com/openclaw/agent-proxy/internal/token"
 )
 
 type ChatCompletionsHandler struct {
+	forwardingStage *pipeline.ForwardingStage
+	streamingProxy  *pipeline.StreamingProxy
+	tokenResolver   *token.TokenResolver
 }
 
-func NewChatCompletionsHandler() *ChatCompletionsHandler {
-	return &ChatCompletionsHandler{}
+func NewChatCompletionsHandler(forwardingStage *pipeline.ForwardingStage, tokenResolver *token.TokenResolver) *ChatCompletionsHandler {
+	return &ChatCompletionsHandler{
+		forwardingStage: forwardingStage,
+		streamingProxy:  pipeline.NewStreamingProxy(forwardingStage),
+		tokenResolver:   tokenResolver,
+	}
 }
 
 func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -21,7 +36,13 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	}
 
 	var req ChatCompletionRequest
-	if err := DecodeJSON(r, &req); err != nil {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, "Failed to read request body", "invalid_request_error")
+		return
+	}
+
+	if err := json.Unmarshal(body, &req); err != nil {
 		WriteError(w, http.StatusBadRequest, "Invalid JSON body", "invalid_request_error")
 		return
 	}
@@ -31,10 +52,131 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	userID := auth.GetUserID(r.Context())
+	if userID == "" {
+		userID = "default"
+	}
+
+	providerName := resolveProvider(req.Model)
+	if providerName == "" {
+		WriteError(w, http.StatusNotFound, fmt.Sprintf("No provider found for model: %s", req.Model), "invalid_request_error")
+		return
+	}
+
+	resolvedToken, err := h.tokenResolver.ResolveToken(userID, providerName, req.Model)
+	if err != nil {
+		WriteError(w, http.StatusUnauthorized, fmt.Sprintf("No available token for provider %s: %v", providerName, err), "authentication_error")
+		return
+	}
+	defer resolvedToken.Clear()
+
+	transformedBody, err := h.transformRequest(providerName, body)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to transform request", "server_error")
+		return
+	}
+
+	pipelineReq := &pipeline.Request{
+		HTTPRequest: r,
+		UserID:      userID,
+		Model:       req.Model,
+		Provider:    providerName,
+		Token:       resolvedToken.AccessToken,
+		Body:        transformedBody,
+		Stream:      req.Stream,
+	}
+
 	if req.Stream {
-		h.handleStreaming(w, r, &req)
+		h.handleStreaming(w, r, pipelineReq)
 	} else {
-		h.handleNonStreaming(w, r, &req)
+		h.handleNonStreaming(w, r, pipelineReq, providerName)
+	}
+}
+
+func (h *ChatCompletionsHandler) handleNonStreaming(w http.ResponseWriter, r *http.Request, req *pipeline.Request, providerName string) {
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	config := &pipeline.ProviderConfig{
+		BaseURL: h.getBaseURL(providerName),
+		Timeout: 60 * time.Second,
+	}
+	h.forwardingStage.RegisterProvider(providerName, config)
+
+	forwardedReq, err := h.forwardingStage.Process(ctx, req)
+	if err != nil {
+		WriteError(w, http.StatusBadGateway, fmt.Sprintf("Failed to forward request: %v", err), "server_error")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(forwardedReq.Body)
+}
+
+func (h *ChatCompletionsHandler) handleStreaming(w http.ResponseWriter, r *http.Request, req *pipeline.Request) {
+	ctx := r.Context()
+
+	config := &pipeline.ProviderConfig{
+		BaseURL: h.getBaseURL(req.Provider),
+		Timeout: 0,
+	}
+	h.forwardingStage.RegisterProvider(req.Provider, config)
+
+	if err := h.streamingProxy.ProxyStreamWithContext(ctx, w, req); err != nil {
+		if !strings.Contains(err.Error(), "context canceled") {
+			WriteError(w, http.StatusBadGateway, fmt.Sprintf("Streaming failed: %v", err), "server_error")
+		}
+	}
+}
+
+func (h *ChatCompletionsHandler) transformRequest(providerName string, body []byte) ([]byte, error) {
+	switch providerName {
+	case "openai":
+		return body, nil
+	case "anthropic":
+		var openaiReq provider.OpenAIChatRequest
+		if err := json.Unmarshal(body, &openaiReq); err != nil {
+			return nil, err
+		}
+		anthropicReq := provider.ConvertOpenAIToAnthropic(&openaiReq)
+		return json.Marshal(anthropicReq)
+	case "google":
+		var openaiReq provider.OpenAIChatRequest
+		if err := json.Unmarshal(body, &openaiReq); err != nil {
+			return nil, err
+		}
+		geminiReq := provider.ConvertOpenAIToGemini(&openaiReq)
+		return json.Marshal(geminiReq)
+	default:
+		return body, nil
+	}
+}
+
+func (h *ChatCompletionsHandler) getBaseURL(providerName string) string {
+	switch providerName {
+	case "openai":
+		return "https://api.openai.com/v1"
+	case "anthropic":
+		return "https://api.anthropic.com/v1"
+	case "google":
+		return "https://generativelanguage.googleapis.com/v1beta"
+	default:
+		return ""
+	}
+}
+
+func resolveProvider(model string) string {
+	model = strings.ToLower(model)
+	switch {
+	case strings.HasPrefix(model, "gpt-"):
+		return "openai"
+	case strings.HasPrefix(model, "claude-"):
+		return "anthropic"
+	case strings.HasPrefix(model, "gemini-"):
+		return "google"
+	default:
+		return ""
 	}
 }
 
@@ -74,68 +216,4 @@ func validateChatCompletionRequest(req *ChatCompletionRequest) error {
 	}
 
 	return nil
-}
-
-func (h *ChatCompletionsHandler) handleNonStreaming(w http.ResponseWriter, r *http.Request, req *ChatCompletionRequest) {
-	response := ChatCompletionResponse{
-		ID:      fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano()),
-		Object:  "chat.completion",
-		Created: time.Now().Unix(),
-		Model:   req.Model,
-		Choices: []ChatCompletionChoice{
-			{
-				Index: 0,
-				Message: ChatMessage{
-					Role:    "assistant",
-					Content: "This is a placeholder response. Provider integration not yet implemented.",
-				},
-				FinishReason: "stop",
-			},
-		},
-		Usage: Usage{
-			PromptTokens:     10,
-			CompletionTokens: 15,
-			TotalTokens:      25,
-		},
-	}
-
-	WriteJSON(w, http.StatusOK, response)
-}
-
-func (h *ChatCompletionsHandler) handleStreaming(w http.ResponseWriter, r *http.Request, req *ChatCompletionRequest) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		WriteError(w, http.StatusInternalServerError, "Streaming not supported", "server_error")
-		return
-	}
-
-	id := fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano())
-	created := time.Now().Unix()
-
-	chunk := ChatCompletionChunk{
-		ID:      id,
-		Object:  "chat.completion.chunk",
-		Created: created,
-		Model:   req.Model,
-		Choices: []ChatCompletionDelta{
-			{
-				Index: 0,
-				Delta: ChatMessage{
-					Role:    "assistant",
-					Content: "This is a placeholder streaming response.",
-				},
-			},
-		},
-	}
-
-	data, _ := json.Marshal(chunk)
-	fmt.Fprintf(w, "data: %s\n\n", data)
-	flusher.Flush()
-
-	fmt.Fprintf(w, "data: [DONE]\n\n")
-	flusher.Flush()
 }

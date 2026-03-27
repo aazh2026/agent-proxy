@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -100,7 +101,7 @@ func TestAuthMiddlewarePublicEndpoint(t *testing.T) {
 }
 
 func TestGetUserID(t *testing.T) {
-	ctx := SetUserID(nil, "test-user")
+	ctx := SetUserID(context.Background(), "test-user")
 	userID := GetUserID(ctx)
 	if userID != "test-user" {
 		t.Errorf("Expected test-user, got %s", userID)

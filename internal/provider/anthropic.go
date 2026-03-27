@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"io"
+	"time"
 )
 
 type AnthropicProvider struct {
@@ -178,4 +179,72 @@ type AnthropicStreamDelta struct {
 	Type       string `json:"type,omitempty"`
 	Text       string `json:"text,omitempty"`
 	StopReason string `json:"stop_reason,omitempty"`
+}
+
+func ConvertOpenAIToAnthropic(openaiReq *OpenAIChatRequest) *AnthropicRequest {
+	anthropicReq := &AnthropicRequest{
+		Model:       openaiReq.Model,
+		MaxTokens:   4096,
+		Temperature: openaiReq.Temperature,
+		TopP:        openaiReq.TopP,
+		Stream:      openaiReq.Stream,
+	}
+
+	if openaiReq.MaxTokens != nil {
+		anthropicReq.MaxTokens = *openaiReq.MaxTokens
+	}
+
+	var system string
+	var messages []AnthropicMessage
+	for _, msg := range openaiReq.Messages {
+		if msg.Role == "system" {
+			system = msg.Content
+		} else {
+			messages = append(messages, AnthropicMessage{
+				Role:    msg.Role,
+				Content: msg.Content,
+			})
+		}
+	}
+
+	anthropicReq.System = system
+	anthropicReq.Messages = messages
+
+	return anthropicReq
+}
+
+func ConvertAnthropicToOpenAI(anthropicResp *AnthropicResponse) *OpenAIChatResponse {
+	var content string
+	for _, block := range anthropicResp.Content {
+		if block.Type == "text" {
+			content += block.Text
+		}
+	}
+
+	stopReason := anthropicResp.StopReason
+	if stopReason == "" {
+		stopReason = "stop"
+	}
+
+	return &OpenAIChatResponse{
+		ID:      anthropicResp.ID,
+		Object:  "chat.completion",
+		Created: time.Now().Unix(),
+		Model:   anthropicResp.Model,
+		Choices: []OpenAIChoice{
+			{
+				Index: 0,
+				Message: OpenAIMessage{
+					Role:    "assistant",
+					Content: content,
+				},
+				FinishReason: stopReason,
+			},
+		},
+		Usage: OpenAIUsage{
+			PromptTokens:     anthropicResp.Usage.InputTokens,
+			CompletionTokens: anthropicResp.Usage.OutputTokens,
+			TotalTokens:      anthropicResp.Usage.InputTokens + anthropicResp.Usage.OutputTokens,
+		},
+	}
 }
