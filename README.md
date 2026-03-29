@@ -12,6 +12,56 @@ A local, zero-dependency LLM authentication proxy that provides a unified OpenAI
 - **Built-in Observability**: Real-time metrics, request logging, Web UI dashboard
 - **Single Binary**: Zero dependencies, cross-platform deployment
 
+## User Guide
+
+This section is a concise step-by-step guide to using Agent Proxy for the first time.
+
+1. Install and start:
+   - Download prebuilt binary from releases or build from source (`make build`).
+   - Run `./agent-proxy` (default port 4000) or `./agent-proxy --config /path/to/agent-proxy.yaml`.
+
+2. Verify service status:
+   - `curl http://localhost:4000/health`
+   - `curl http://localhost:4000/metrics`
+
+3. Register provider tokens (using `X-User-ID` or your auth method):
+   - OpenAI:
+     ```bash
+     curl -X POST http://localhost:4000/tokens \
+       -H "Content-Type: application/json" \
+       -H "X-User-ID: alice" \
+       -d '{"provider":"openai","type":"api_key","access_token":"sk-..."}'
+     ```
+   - Anthropic:
+     ```bash
+     curl -X POST http://localhost:4000/tokens \
+       -H "Content-Type: application/json" \
+       -H "X-User-ID: alice" \
+       -d '{"provider":"anthropic","type":"api_key","access_token":"sk-..."}'
+     ```
+
+4. Send requests through the proxy:
+   - `gpt-*` models route to OpenAI, `claude-*` to Anthropic, `gemini-*` to Google.
+   - Example chat completion:
+     ```bash
+     curl -X POST http://localhost:4000/v1/chat/completions \
+       -H "Content-Type: application/json" \
+       -H "X-User-ID: alice" \
+       -d '{"model":"gpt-4","messages":[{"role":"user","content":"Hello"}]}'
+     ```
+
+5. Manage tokens:
+   - List: `curl -H "X-User-ID: alice" http://localhost:4000/tokens`
+   - Delete: `curl -X DELETE "http://localhost:4000/tokens/delete?token_id=<id>" -H "X-User-ID: alice"`
+
+6. Explore the dashboard:
+   - Visit `http://localhost:4000/` for Web UI and real-time metrics.
+
+7. Customize config:
+   - Copy `agent-proxy.example.yaml`, edit values (ports, providers, auth, logging), and restart.
+
+> Tip: Use `agent-proxy --help` for all CLI flags and `agent-proxy.example.yaml` for full config options.
+
 ## Quick Start
 
 ### Download
@@ -30,6 +80,17 @@ Download the latest release for your platform from the releases page.
 # Start on custom port
 ./agent-proxy --port 8080
 ```
+
+### Build + Start Script
+
+A helper script is available for local development:
+
+```bash
+./scripts/build-and-start.sh --config /path/to/agent-proxy.yaml --port 4000
+```
+
+This builds `agent-proxy` and immediately starts the server using the same process.
+
 
 ### Verify
 
