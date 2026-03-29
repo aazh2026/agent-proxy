@@ -53,10 +53,7 @@ func (t *QuotaTracker) SetQuota(userID string, config *QuotaConfig) {
 	t.configs[userID] = config
 }
 
-func (t *QuotaTracker) GetCounter(userID string) *QuotaCounter {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
-
+func (t *QuotaTracker) getOrCreateCounter(userID string) *QuotaCounter {
 	counter, ok := t.counters[userID]
 	if !ok {
 		counter = &QuotaCounter{
@@ -75,11 +72,17 @@ func (t *QuotaTracker) GetCounter(userID string) *QuotaCounter {
 	return counter
 }
 
+func (t *QuotaTracker) GetCounter(userID string) *QuotaCounter {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.getOrCreateCounter(userID)
+}
+
 func (t *QuotaTracker) IncrementRequests(userID string, count int64) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	counter := t.GetCounter(userID)
+	counter := t.getOrCreateCounter(userID)
 	config := t.configs[userID]
 
 	if config != nil && config.Type == QuotaRequests {
@@ -128,13 +131,14 @@ func (t *QuotaTracker) IncrementCost(userID string, cost float64) error {
 
 func (t *QuotaTracker) CheckQuota(userID string) error {
 	t.mu.RLock()
-	defer t.mu.RUnlock()
-
 	config := t.configs[userID]
+	t.mu.RUnlock()
+
 	if config == nil {
 		return nil
 	}
 
+	// Safely get counter with exclusive lock to avoid recursive lock acquisition.
 	counter := t.GetCounter(userID)
 
 	switch config.Type {
