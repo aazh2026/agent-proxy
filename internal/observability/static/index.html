@@ -145,7 +145,8 @@
         document.getElementById('save-config-btn').addEventListener('click', saveConfig);
         document.getElementById('refresh-config-btn').addEventListener('click', fetchConfig);
         document.getElementById('openai-connect').addEventListener('click', function () {
-            window.location.href = '/auth/openai/login';
+            // Use exact current origin so localhost / 127.0.0.1 resolves correctly.
+            window.location.href = window.location.origin + '/auth/openai/login';
         });
 
         fetchConfig();
