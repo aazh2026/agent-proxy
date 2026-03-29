@@ -87,6 +87,7 @@ func (s *TokenStore) GetToken(tokenID string) (*Token, error) {
 func (s *TokenStore) GetTokensByUser(userID string) ([]*Token, error) {
 	rows, err := s.db.Query(
 		`SELECT token_id, user_id, provider, type,
+			access_token_encrypted, refresh_token_encrypted,
 			expires_at, created_at, updated_at,
 			status, priority, allowed_models
 		FROM tokens WHERE user_id = ? ORDER BY priority DESC, created_at DESC`,
@@ -103,6 +104,7 @@ func (s *TokenStore) GetTokensByUser(userID string) ([]*Token, error) {
 		var allowedModelsJSON string
 		err := rows.Scan(
 			&token.TokenID, &token.UserID, &token.Provider, &token.Type,
+			&token.AccessTokenEncrypted, &token.RefreshTokenEncrypted,
 			&token.ExpiresAt, &token.CreatedAt, &token.UpdatedAt,
 			&token.Status, &token.Priority, &allowedModelsJSON,
 		)
@@ -118,6 +120,7 @@ func (s *TokenStore) GetTokensByUser(userID string) ([]*Token, error) {
 func (s *TokenStore) GetAllTokens() ([]*Token, error) {
 	rows, err := s.db.Query(
 		`SELECT token_id, user_id, provider, type,
+			access_token_encrypted, refresh_token_encrypted,
 			expires_at, created_at, updated_at,
 			status, priority, allowed_models
 		FROM tokens WHERE status = 'active' ORDER BY priority DESC, created_at DESC`,
@@ -133,6 +136,7 @@ func (s *TokenStore) GetAllTokens() ([]*Token, error) {
 		var allowedModelsJSON string
 		err := rows.Scan(
 			&token.TokenID, &token.UserID, &token.Provider, &token.Type,
+			&token.AccessTokenEncrypted, &token.RefreshTokenEncrypted,
 			&token.ExpiresAt, &token.CreatedAt, &token.UpdatedAt,
 			&token.Status, &token.Priority, &allowedModelsJSON,
 		)
@@ -148,6 +152,7 @@ func (s *TokenStore) GetAllTokens() ([]*Token, error) {
 func (s *TokenStore) GetTokensByProvider(userID, provider string) ([]*Token, error) {
 	rows, err := s.db.Query(
 		`SELECT token_id, user_id, provider, type,
+			access_token_encrypted, refresh_token_encrypted,
 			expires_at, created_at, updated_at,
 			status, priority, allowed_models
 		FROM tokens WHERE user_id = ? AND provider = ? AND status = 'enabled'
@@ -165,6 +170,7 @@ func (s *TokenStore) GetTokensByProvider(userID, provider string) ([]*Token, err
 		var allowedModelsJSON string
 		err := rows.Scan(
 			&token.TokenID, &token.UserID, &token.Provider, &token.Type,
+			&token.AccessTokenEncrypted, &token.RefreshTokenEncrypted,
 			&token.ExpiresAt, &token.CreatedAt, &token.UpdatedAt,
 			&token.Status, &token.Priority, &allowedModelsJSON,
 		)

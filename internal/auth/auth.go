@@ -112,6 +112,8 @@ func isPublicEndpoint(path string) bool {
 		"/auth/oidc/callback",
 		"/auth/oauth2/login",
 		"/auth/oauth2/callback",
+		"/auth/openai/login",
+		"/auth/openai/callback",
 	}
 
 	for _, p := range publicPaths {

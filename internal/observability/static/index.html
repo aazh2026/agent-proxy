@@ -64,6 +64,12 @@
             </table>
         </div>
         <div class="card">
+            <h2>OpenAI OAuth Connect</h2>
+            <p>Authenticate with OpenAI and persist access token to this proxy.</p>
+            <button id="openai-connect" style="cursor:pointer;background:#2563eb;color:white;padding:8px 12px;border:none;border-radius:4px;">Connect OpenAI</button>
+            <p style="margin-top:10px;color:#555;">Logs will indicate whether the login redirect happened.</p>
+        </div>
+        <div class="card">
             <h2>Configuration</h2>
             <p>Edit proxy configuration (JSON) and click Save. Changes are written to the active config file and auto-reloaded.</p>
             <textarea id="config-textarea" style="width:100%;height:280px;font-family:monospace;margin-bottom:10px;">Loading config...</textarea>
@@ -138,6 +144,9 @@
 
         document.getElementById('save-config-btn').addEventListener('click', saveConfig);
         document.getElementById('refresh-config-btn').addEventListener('click', fetchConfig);
+        document.getElementById('openai-connect').addEventListener('click', function () {
+            window.location.href = '/auth/openai/login';
+        });
 
         fetchConfig();
     </script>

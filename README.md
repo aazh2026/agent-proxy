@@ -8,6 +8,7 @@ A local, zero-dependency LLM authentication proxy that provides a unified OpenAI
 - **Multi-Provider Support**: OpenAI, Anthropic Claude, Google Gemini
 - **Secure Token Management**: AES-256-GCM encrypted storage, tokens never leave proxy boundary
 - **Multiple Authentication Methods**: X-User-ID header, local users, OIDC, OAuth2
+- **Provider OAuth Support**: OpenAI browser OAuth flow + auto token persistence
 - **Intelligent Routing**: Model-based routing, load balancing, failover
 - **Built-in Observability**: Real-time metrics, request logging, Web UI dashboard
 - **Single Binary**: Zero dependencies, cross-platform deployment
@@ -290,6 +291,21 @@ curl -X POST http://localhost:4000/auth/login \
 # Use session token
 curl -H "Authorization: Bearer <session_token>" http://localhost:4000/v1/chat/completions
 ```
+
+### OpenAI OAuth (Browser flow)
+
+1. Configure `openai.oauth_client_id`, `openai.oauth_client_secret`, and `openai.oauth_redirect_uri` in `agent-proxy.yaml`.
+2. Start browser flow:
+
+```bash
+# Must include user identity (X-User-ID or authenticated session)
+curl -i -H "X-User-ID: alice" http://localhost:4000/auth/openai/login
+```
+
+3. Complete OAuth consent in browser; OpenAI redirects back to `/auth/openai/callback`.
+4. Proxy stores encrypted OpenAI access token and refresh token for user `alice` in the token store.
+5. Subsequent calls to `/v1/chat/completions` with model `gpt-*` use the persisted OpenAI token automatically.
+
 
 ## Dashboard
 

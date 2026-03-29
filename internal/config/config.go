@@ -76,10 +76,13 @@ type ProvidersConfig struct {
 }
 
 type ProviderConfig struct {
-	Enabled  bool   `yaml:"enabled"`
-	BaseURL  string `yaml:"base_url"`
-	Timeout  int    `yaml:"timeout_seconds"`
-	MaxConns int    `yaml:"max_connections"`
+	Enabled           bool   `yaml:"enabled"`
+	BaseURL           string `yaml:"base_url"`
+	Timeout           int    `yaml:"timeout_seconds"`
+	MaxConns          int    `yaml:"max_connections"`
+	OAuthClientID     string `yaml:"oauth_client_id"`
+	OAuthClientSecret string `yaml:"oauth_client_secret"`
+	OAuthRedirectURI  string `yaml:"oauth_redirect_uri"`
 }
 
 func DefaultConfig() *Config {
