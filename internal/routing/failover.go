@@ -33,12 +33,21 @@ func (h *FailoverHandler) ExecuteWithRetry(tokens []*token.Token, fn func(*token
 	for attempt := 0; attempt <= h.maxRetries; attempt++ {
 		availableTokens := h.filterAvailable(tokens, usedTokens)
 		if len(availableTokens) == 0 {
-			break
+			// If we've tried all tokens, reset usedTokens to allow cycling
+			if len(usedTokens) == len(tokens) {
+				usedTokens = make(map[string]bool)
+				availableTokens = h.filterAvailable(tokens, usedTokens)
+				if len(availableTokens) == 0 {
+					return ErrNoAvailableToken
+				}
+			} else {
+				return ErrNoAvailableToken
+			}
 		}
 
 		selectedToken := h.selector.SelectToken(availableTokens)
 		if selectedToken == nil {
-			break
+			return ErrNoAvailableToken
 		}
 
 		err := fn(selectedToken)
@@ -55,6 +64,9 @@ func (h *FailoverHandler) ExecuteWithRetry(tokens []*token.Token, fn func(*token
 		}
 	}
 
+	if lastErr == nil {
+		return ErrNoAvailableToken
+	}
 	return lastErr
 }
 

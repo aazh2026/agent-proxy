@@ -115,6 +115,36 @@ func (s *TokenStore) GetTokensByUser(userID string) ([]*Token, error) {
 	return tokens, nil
 }
 
+func (s *TokenStore) GetAllTokens() ([]*Token, error) {
+	rows, err := s.db.Query(
+		`SELECT token_id, user_id, provider, type,
+			expires_at, created_at, updated_at,
+			status, priority, allowed_models
+		FROM tokens WHERE status = 'active' ORDER BY priority DESC, created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tokens []*Token
+	for rows.Next() {
+		token := &Token{}
+		var allowedModelsJSON string
+		err := rows.Scan(
+			&token.TokenID, &token.UserID, &token.Provider, &token.Type,
+			&token.ExpiresAt, &token.CreatedAt, &token.UpdatedAt,
+			&token.Status, &token.Priority, &allowedModelsJSON,
+		)
+		if err != nil {
+			return nil, err
+		}
+		json.Unmarshal([]byte(allowedModelsJSON), &token.AllowedModels)
+		tokens = append(tokens, token)
+	}
+	return tokens, nil
+}
+
 func (s *TokenStore) GetTokensByProvider(userID, provider string) ([]*Token, error) {
 	rows, err := s.db.Query(
 		`SELECT token_id, user_id, provider, type,

@@ -46,7 +46,7 @@ func (s *TokenSelector) SelectToken(tokens []*token.Token) *token.Token {
 
 func (s *TokenSelector) selectRoundRobin(tokens []*token.Token) *token.Token {
 	idx := atomic.AddUint64(&s.counter, 1)
-	return tokens[idx%uint64(len(tokens))]
+	return tokens[(idx-1)%uint64(len(tokens))]
 }
 
 func (s *TokenSelector) selectWeighted(tokens []*token.Token) *token.Token {
