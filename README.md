@@ -293,7 +293,10 @@ curl -H "Authorization: Bearer <session_token>" http://localhost:4000/v1/chat/co
 
 ## Dashboard
 
-Access the admin dashboard at `http://localhost:4000/`
+Access the admin dashboard at `http://localhost:4000/`.
+
+- In the dashboard, the new Configuration panel lets you view and edit current config JSON, save it to disk, and trigger a reload via the config watcher.
+
 
 ## Building from Source
 

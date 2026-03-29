@@ -259,3 +259,17 @@ func validate(config *Config) error {
 
 	return nil
 }
+
+// Validate checks if the provided config values are valid.
+func Validate(config *Config) error {
+	return validate(config)
+}
+
+// Save writes the configuration to the specified path in YAML format.
+func Save(configPath string, config *Config) error {
+	data, err := yaml.Marshal(config)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(configPath, data, 0644)
+}

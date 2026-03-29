@@ -63,6 +63,16 @@
                 </tbody>
             </table>
         </div>
+        <div class="card">
+            <h2>Configuration</h2>
+            <p>Edit proxy configuration (JSON) and click Save. Changes are written to the active config file and auto-reloaded.</p>
+            <textarea id="config-textarea" style="width:100%;height:280px;font-family:monospace;margin-bottom:10px;">Loading config...</textarea>
+            <div style="margin-bottom:12px;">
+                <button id="save-config-btn" style="cursor:pointer;margin-right:8px;">Save Configuration</button>
+                <button id="refresh-config-btn" style="cursor:pointer;">Refresh</button>
+            </div>
+            <div id="config-status" style="color:#2563eb"></div>
+        </div>
     </div>
     <script>
         async function fetchMetrics() {
@@ -87,6 +97,49 @@
         }
         fetchMetrics();
         setInterval(fetchMetrics, 5000);
+
+        async function fetchConfig() {
+            try {
+                const response = await fetch('/config');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch config');
+                }
+                const config = await response.json();
+                document.getElementById('config-textarea').value = JSON.stringify(config, null, 2);
+            } catch (error) {
+                console.error('Config fetch error:', error);
+                document.getElementById('config-textarea').value = 'Unable to load config: ' + error.message;
+            }
+        }
+
+        async function saveConfig() {
+            const status = document.getElementById('config-status');
+            try {
+                const raw = document.getElementById('config-textarea').value;
+                const parsed = JSON.parse(raw);
+                const response = await fetch('/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(parsed)
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text || 'Failed to save config');
+                }
+
+                status.textContent = 'Configuration saved successfully.';
+                setTimeout(() => { status.textContent = ''; }, 3000);
+                fetchConfig();
+            } catch (error) {
+                status.textContent = 'Save failed: ' + error.message;
+            }
+        }
+
+        document.getElementById('save-config-btn').addEventListener('click', saveConfig);
+        document.getElementById('refresh-config-btn').addEventListener('click', fetchConfig);
+
+        fetchConfig();
     </script>
 </body>
 </html>
