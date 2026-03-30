@@ -45,11 +45,36 @@ providers:
 # Routing configuration
 routing:
   token_strategy: "round-robin"  # Token selection strategy: round-robin, weighted, priority
+  cost_strategy: "quality-first"  # Model selection: quality-first, cost-first, latency-first, balanced
   model_mappings: {}  # Custom model mappings (model_name -> provider_config)
   retry_policy:
     max_retries: 3      # Maximum retry attempts
     initial_ms: 100     # Initial retry delay
     max_delay_ms: 5000  # Maximum retry delay
+  # Cost per 1M tokens (USD)
+  cost_matrix:
+    gpt-4o:
+      input: 5.00
+      output: 15.00
+    gpt-4o-mini:
+      input: 0.30
+      output: 1.20
+    gpt-3.5-turbo:
+      input: 0.50
+      output: 1.50
+    claude-3-opus:
+      input: 15.00
+      output: 75.00
+    claude-3.5-sonnet:
+      input: 3.00
+      output: 15.00
+    gemini-1.5-pro:
+      input: 1.25
+      output: 5.00
+  # Per-user cost preferences
+  user_preferences:
+    alice:
+      strategy: "cost-first"
 
 # Admin dashboard configuration
 admin:

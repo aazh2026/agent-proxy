@@ -55,9 +55,21 @@ type TokenConfig struct {
 }
 
 type RoutingConfig struct {
-	TokenStrategy string                  `yaml:"token_strategy"`
-	ModelMappings map[string]ModelMapping `yaml:"model_mappings"`
-	RetryPolicy   RetryPolicyConfig       `yaml:"retry_policy"`
+	TokenStrategy   string                    `yaml:"token_strategy"`
+	ModelMappings   map[string]ModelMapping   `yaml:"model_mappings"`
+	RetryPolicy     RetryPolicyConfig         `yaml:"retry_policy"`
+	CostStrategy    string                    `yaml:"cost_strategy"`
+	CostMatrix      map[string]CostConfig     `yaml:"cost_matrix"`
+	UserPreferences map[string]UserPreference `yaml:"user_preferences"`
+}
+
+type CostConfig struct {
+	Input  float64 `yaml:"input"`
+	Output float64 `yaml:"output"`
+}
+
+type UserPreference struct {
+	Strategy string `yaml:"strategy"`
 }
 
 type ModelMapping struct {
@@ -257,9 +269,22 @@ func validate(config *Config) error {
 		"round-robin": true,
 		"weighted":    true,
 		"priority":    true,
+		"cost-first":  true,
 	}
 	if !validStrategies[config.Routing.TokenStrategy] {
 		return fmt.Errorf("invalid token strategy: %s", config.Routing.TokenStrategy)
+	}
+
+	if config.Routing.CostStrategy != "" {
+		validCostStrategies := map[string]bool{
+			"quality-first": true,
+			"cost-first":    true,
+			"latency-first": true,
+			"balanced":      true,
+		}
+		if !validCostStrategies[config.Routing.CostStrategy] {
+			return fmt.Errorf("invalid cost strategy: %s", config.Routing.CostStrategy)
+		}
 	}
 
 	validLevels := map[string]bool{

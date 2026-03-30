@@ -83,6 +83,57 @@ Analyze the current codebase against PRD.md requirements and implement the missi
 ## Dependencies
 - None
 
+---
+
+## Phase 2: P1/P2 Features Implementation (2026-03-31)
+
+### Design Approved: P1/P2 Features
+- Design document: `docs/superpowers/specs/2026-03-31-p1-p2-features-design.md`
+- Features:
+  1. **Semantic Caching** - embedding-based similar prompt detection
+  2. **Cost-Aware Routing** - route by cost/latency/quality
+  3. **Per-User Cost Quotas** - track and limit spending
+  4. **A/B Testing Framework** - traffic splitting for model comparison
+  5. **Request Parameter Override** - force/default params per user/model
+
+### Implementation Progress
+
+#### P1-1: Cost Matrix + Routing [IN PROGRESS]
+- [x] Add CostConfig, UserPreference to config.go
+- [x] Add cost_strategy, cost_matrix, user_preferences to RoutingConfig
+- [x] Add validation for cost strategies
+- [x] Create routing/cost.go with CostSelector, CostTracker
+- [x] Update agent-proxy.example.yaml with cost matrix example
+- [ ] Wire CostSelector into request handler
+- [ ] Add cost calculation from response tokens
+- [ ] Add cost tracking to metrics
+
+#### P1-2: Per-User Quotas [PENDING]
+- [ ] Add quota config (period, limits, exceeded_action)
+- [ ] Create quota tracker with SQLite persistence
+- [ ] Add quota enforcement (block/warn/fallback)
+- [ ] Add quota API endpoints
+- [ ] Add quota dashboard UI
+
+#### P1-3: Basic Semantic Cache [PENDING]
+- [ ] Enhance existing cache with embedding similarity
+- [ ] Add embedding provider integration
+- [ ] Add similarity threshold config
+- [ ] Add cache stats API
+
+#### P2-1: A/B Testing [PENDING]
+- [ ] Add experiment config
+- [ ] Create traffic splitter with sticky assignment
+- [ ] Add metrics collection
+- [ ] Add statistical analysis
+
+#### P2-2: Parameter Override [PENDING]
+- [ ] Add request_overrides config
+- [ ] Implement forced/default params
+- [ ] Add per-model, per-user overrides
+
+---
+
 ## Errors Encountered
 | Error | Attempt | Resolution |
 |-------|---------|------------|

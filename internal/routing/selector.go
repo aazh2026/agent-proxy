@@ -13,17 +13,27 @@ const (
 	StrategyRoundRobin TokenStrategy = "round-robin"
 	StrategyWeighted   TokenStrategy = "weighted"
 	StrategyPriority   TokenStrategy = "priority"
+	StrategyCostFirst  TokenStrategy = "cost-first"
 )
 
 type TokenSelector struct {
-	strategy TokenStrategy
-	mu       sync.Mutex
-	counter  uint64
+	strategy    TokenStrategy
+	costMatrix  map[string]CostConfig
+	costTracker *CostTracker
+	mu          sync.Mutex
+	counter     uint64
 }
 
 func NewTokenSelector(strategy TokenStrategy) *TokenSelector {
 	return &TokenSelector{
 		strategy: strategy,
+	}
+}
+
+func NewTokenSelectorWithCost(strategy TokenStrategy, costMatrix map[string]CostConfig) *TokenSelector {
+	return &TokenSelector{
+		strategy:   strategy,
+		costMatrix: costMatrix,
 	}
 }
 
@@ -39,6 +49,8 @@ func (s *TokenSelector) SelectToken(tokens []*token.Token) *token.Token {
 		return s.selectWeighted(tokens)
 	case StrategyPriority:
 		return s.selectPriority(tokens)
+	case StrategyCostFirst:
+		return s.selectCostFirst(tokens)
 	default:
 		return s.selectRoundRobin(tokens)
 	}
@@ -85,4 +97,39 @@ func (s *TokenSelector) selectPriority(tokens []*token.Token) *token.Token {
 		}
 	}
 	return selected
+}
+
+func (s *TokenSelector) selectCostFirst(tokens []*token.Token) *token.Token {
+	if s.costMatrix == nil || len(tokens) == 0 {
+		return tokens[0]
+	}
+
+	lowestCost := float64(0)
+	selected := tokens[0]
+	first := true
+
+	for _, t := range tokens {
+		var modelCost float64
+		if len(t.AllowedModels) > 0 {
+			modelCost = s.getModelCost(t.AllowedModels[0])
+		}
+		if first || modelCost < lowestCost {
+			lowestCost = modelCost
+			selected = t
+			first = false
+		}
+	}
+
+	return selected
+}
+
+func (s *TokenSelector) getModelCost(model string) float64 {
+	if s.costMatrix == nil {
+		return 0
+	}
+	cfg, ok := s.costMatrix[model]
+	if !ok {
+		return 0
+	}
+	return cfg.Input + cfg.Output
 }
