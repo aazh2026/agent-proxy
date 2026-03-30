@@ -10,14 +10,20 @@ import (
 )
 
 type Config struct {
-	Server    ServerConfig        `yaml:"server"`
-	Auth      AuthConfig          `yaml:"auth"`
-	Token     TokenConfig         `yaml:"token"`
-	Routing   RoutingConfig       `yaml:"routing"`
-	Providers ProvidersConfig     `yaml:"providers"`
-	Admin     AdminConfig         `yaml:"admin"`
-	Logging   LoggingConfig       `yaml:"logging"`
-	Request   RequestParamsConfig `yaml:"request"`
+	Server      ServerConfig        `yaml:"server"`
+	Auth        AuthConfig          `yaml:"auth"`
+	Token       TokenConfig         `yaml:"token"`
+	Routing     RoutingConfig       `yaml:"routing"`
+	Providers   ProvidersConfig     `yaml:"providers"`
+	Admin       AdminConfig         `yaml:"admin"`
+	Logging     LoggingConfig       `yaml:"logging"`
+	Request     RequestParamsConfig `yaml:"request"`
+	ModelAccess ModelAccessConfig   `yaml:"model_access"`
+}
+
+type ModelAccessConfig struct {
+	DefaultModels []string            `yaml:"default_models"`
+	UserModels    map[string][]string `yaml:"user_models"`
 }
 
 type RequestParamsConfig struct {
