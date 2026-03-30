@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/openclaw/agent-proxy/internal/pipeline"
+	"github.com/openclaw/agent-proxy/internal/routing"
 	"github.com/openclaw/agent-proxy/internal/token"
 )
 
@@ -14,7 +15,8 @@ func BenchmarkChatCompletions(b *testing.B) {
 	forwardingStage := pipeline.NewForwardingStage()
 	tokenStore := &token.TokenStore{}
 	tokenResolver := token.NewTokenResolver(tokenStore, nil)
-	handler := NewChatCompletionsHandler(forwardingStage, tokenResolver)
+	routingHandler := routing.NewRequestHandler(tokenResolver, 3, 100, 5000, routing.StrategyRoundRobin)
+	handler := NewChatCompletionsHandler(forwardingStage, tokenResolver, routingHandler)
 
 	body := map[string]interface{}{
 		"model": "gpt-4",
@@ -36,7 +38,8 @@ func BenchmarkEmbeddings(b *testing.B) {
 	forwardingStage := pipeline.NewForwardingStage()
 	tokenStore := &token.TokenStore{}
 	tokenResolver := token.NewTokenResolver(tokenStore, nil)
-	handler := NewEmbeddingsHandler(forwardingStage, tokenResolver)
+	routingHandler := routing.NewRequestHandler(tokenResolver, 3, 100, 5000, routing.StrategyRoundRobin)
+	handler := NewEmbeddingsHandler(forwardingStage, tokenResolver, routingHandler)
 
 	body := map[string]interface{}{
 		"model": "text-embedding-ada-002",

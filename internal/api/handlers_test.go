@@ -13,6 +13,7 @@ import (
 	"github.com/openclaw/agent-proxy/internal/auth"
 	"github.com/openclaw/agent-proxy/internal/crypto"
 	"github.com/openclaw/agent-proxy/internal/pipeline"
+	"github.com/openclaw/agent-proxy/internal/routing"
 	"github.com/openclaw/agent-proxy/internal/token"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -64,7 +65,8 @@ func TestChatCompletionsHandler_HandleRequest(t *testing.T) {
 	encryptor, _ := crypto.NewEncryptor(key)
 	forwardingStage := pipeline.NewForwardingStage()
 	tokenResolver := token.NewTokenResolver(tokenStore, encryptor)
-	handler := NewChatCompletionsHandler(forwardingStage, tokenResolver)
+	routingHandler := routing.NewRequestHandler(tokenResolver, 3, 100, 5000, routing.StrategyRoundRobin)
+	handler := NewChatCompletionsHandler(forwardingStage, tokenResolver, routingHandler)
 
 	body := map[string]interface{}{
 		"model": "gpt-3.5-turbo",
@@ -81,8 +83,8 @@ func TestChatCompletionsHandler_HandleRequest(t *testing.T) {
 
 	handler.ServeHTTP(w, req)
 
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError && w.Code != http.StatusUnauthorized {
-		t.Errorf("Expected status 200, 500, or 401, got %d", w.Code)
+	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError && w.Code != http.StatusUnauthorized && w.Code != http.StatusBadGateway {
+		t.Errorf("Expected status 200, 401, 500, or 502, got %d", w.Code)
 	}
 }
 
@@ -93,7 +95,8 @@ func TestEmbeddingsHandler_HandleRequest(t *testing.T) {
 	encryptor, _ := crypto.NewEncryptor(key)
 	forwardingStage := pipeline.NewForwardingStage()
 	tokenResolver := token.NewTokenResolver(tokenStore, encryptor)
-	handler := NewEmbeddingsHandler(forwardingStage, tokenResolver)
+	routingHandler := routing.NewRequestHandler(tokenResolver, 3, 100, 5000, routing.StrategyRoundRobin)
+	handler := NewEmbeddingsHandler(forwardingStage, tokenResolver, routingHandler)
 
 	body := map[string]interface{}{
 		"model": "text-embedding-ada-002",
@@ -108,7 +111,7 @@ func TestEmbeddingsHandler_HandleRequest(t *testing.T) {
 
 	handler.ServeHTTP(w, req)
 
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError && w.Code != http.StatusUnauthorized {
-		t.Errorf("Expected status 200, 500, or 401, got %d", w.Code)
+	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError && w.Code != http.StatusUnauthorized && w.Code != http.StatusBadGateway {
+		t.Errorf("Expected status 200, 401, 500, or 502, got %d", w.Code)
 	}
 }

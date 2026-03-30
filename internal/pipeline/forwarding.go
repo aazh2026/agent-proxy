@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -97,16 +98,36 @@ func (s *ForwardingStage) ForwardStream(ctx context.Context, req *Request) (io.R
 }
 
 func (s *ForwardingStage) buildURL(baseURL, provider, model string, stream bool) string {
+	// Detect embeddings requests based on model name patterns
+	isEmbedding := isEmbeddingModel(model)
+
 	switch provider {
 	case "openai":
+		if isEmbedding {
+			return baseURL + "/embeddings"
+		}
 		return baseURL + "/chat/completions"
 	case "anthropic":
+		// Anthropic doesn't have a separate embeddings endpoint in the same format
+		// They use the messages API with specific models
 		return baseURL + "/messages"
 	case "google":
+		if isEmbedding {
+			return fmt.Sprintf("%s/models/%s:embedContent", baseURL, model)
+		}
 		return fmt.Sprintf("%s/models/%s:generateContent", baseURL, model)
 	default:
 		return baseURL + "/chat/completions"
 	}
+}
+
+// isEmbeddingModel determines if a model is used for embeddings based on naming conventions
+func isEmbeddingModel(model string) bool {
+	modelLower := strings.ToLower(model)
+	return strings.Contains(modelLower, "embedding") ||
+		strings.Contains(modelLower, "embed") ||
+		strings.HasPrefix(modelLower, "text-embedding") ||
+		strings.HasPrefix(modelLower, "gemini-embedding")
 }
 
 func (s *ForwardingStage) setHeaders(req *http.Request, provider, token string, stream bool) {

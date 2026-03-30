@@ -79,6 +79,10 @@ func (r *TokenResolver) decryptToken(encrypted []byte) (string, error) {
 	return string(decrypted), nil
 }
 
+func (r *TokenResolver) DecryptToken(encrypted []byte) (string, error) {
+	return r.decryptToken(encrypted)
+}
+
 type ResolvedToken struct {
 	TokenID      string
 	UserID       string
@@ -95,4 +99,24 @@ func (t *ResolvedToken) Clear() {
 
 func isExpired(expiresAt int64) bool {
 	return time.Now().Unix() > expiresAt
+}
+
+func (r *TokenResolver) GetValidTokens(userID, provider string) ([]*Token, error) {
+	tokens, err := r.tokenStore.GetTokensByProvider(userID, provider)
+	if err != nil {
+		return nil, err
+	}
+
+	var validTokens []*Token
+	for _, token := range tokens {
+		if token.Status != "enabled" {
+			continue
+		}
+		if isExpired(token.ExpiresAt) {
+			continue
+		}
+		validTokens = append(validTokens, token)
+	}
+
+	return validTokens, nil
 }

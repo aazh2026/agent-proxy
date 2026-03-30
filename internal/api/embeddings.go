@@ -12,6 +12,7 @@ import (
 	"github.com/openclaw/agent-proxy/internal/auth"
 	"github.com/openclaw/agent-proxy/internal/pipeline"
 	"github.com/openclaw/agent-proxy/internal/provider"
+	"github.com/openclaw/agent-proxy/internal/routing"
 	"github.com/openclaw/agent-proxy/internal/token"
 )
 
@@ -38,12 +39,14 @@ type EmbeddingData struct {
 type EmbeddingsHandler struct {
 	forwardingStage *pipeline.ForwardingStage
 	tokenResolver   *token.TokenResolver
+	routingHandler  *routing.RequestHandler
 }
 
-func NewEmbeddingsHandler(forwardingStage *pipeline.ForwardingStage, tokenResolver *token.TokenResolver) *EmbeddingsHandler {
+func NewEmbeddingsHandler(forwardingStage *pipeline.ForwardingStage, tokenResolver *token.TokenResolver, routingHandler *routing.RequestHandler) *EmbeddingsHandler {
 	return &EmbeddingsHandler{
 		forwardingStage: forwardingStage,
 		tokenResolver:   tokenResolver,
+		routingHandler:  routingHandler,
 	}
 }
 
@@ -81,18 +84,23 @@ func (h *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	transformedBody, err := h.transformRequest(providerName, body)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to transform request", "server_error")
+		return
+	}
+
+	if h.routingHandler != nil {
+		h.handleEmbeddingWithFailover(w, r, userID, providerName, req.Model, transformedBody)
+		return
+	}
+
 	resolvedToken, err := h.tokenResolver.ResolveToken(userID, providerName, req.Model)
 	if err != nil {
 		WriteError(w, http.StatusUnauthorized, fmt.Sprintf("No available token for provider %s: %v", providerName, err), "authentication_error")
 		return
 	}
 	defer resolvedToken.Clear()
-
-	transformedBody, err := h.transformRequest(providerName, body)
-	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "Failed to transform request", "server_error")
-		return
-	}
 
 	pipelineReq := &pipeline.Request{
 		HTTPRequest: r,
@@ -132,6 +140,13 @@ func (h *EmbeddingsHandler) transformRequest(providerName string, body []byte) (
 	switch providerName {
 	case "openai":
 		return body, nil
+	case "anthropic":
+		var openaiReq provider.OpenAIEmbeddingRequest
+		if err := json.Unmarshal(body, &openaiReq); err != nil {
+			return nil, err
+		}
+		anthropicReq := convertOpenAIToAnthropicEmbedding(&openaiReq)
+		return json.Marshal(anthropicReq)
 	case "google":
 		var openaiReq provider.OpenAIEmbeddingRequest
 		if err := json.Unmarshal(body, &openaiReq); err != nil {
@@ -148,6 +163,8 @@ func (h *EmbeddingsHandler) getBaseURL(providerName string) string {
 	switch providerName {
 	case "openai":
 		return "https://api.openai.com/v1"
+	case "anthropic":
+		return "https://api.anthropic.com/v1"
 	case "google":
 		return "https://generativelanguage.googleapis.com/v1beta"
 	default:
@@ -158,6 +175,8 @@ func (h *EmbeddingsHandler) getBaseURL(providerName string) string {
 func resolveEmbeddingProvider(model string) string {
 	model = strings.ToLower(model)
 	switch {
+	case strings.Contains(model, "claude-embedding"):
+		return "anthropic"
 	case strings.Contains(model, "embedding") || strings.Contains(model, "embed"):
 		return "openai"
 	case strings.Contains(model, "gemini"):
@@ -214,4 +233,51 @@ func convertOpenAIToGeminiEmbedding(openaiReq *provider.OpenAIEmbeddingRequest) 
 	}
 
 	return geminiReq
+}
+
+type AnthropicEmbeddingRequest struct {
+	model          string `json:"model"`
+	input          string `json:"input"`
+	encodingFormat string `json:"encoding_format"`
+}
+
+func convertOpenAIToAnthropicEmbedding(openaiReq *provider.OpenAIEmbeddingRequest) *AnthropicEmbeddingRequest {
+	var text string
+	if len(openaiReq.Input) > 0 {
+		text = openaiReq.Input[0]
+	}
+
+	return &AnthropicEmbeddingRequest{
+		model:          openaiReq.Model,
+		input:          text,
+		encodingFormat: openaiReq.EncodingFormat,
+	}
+}
+
+func (h *EmbeddingsHandler) handleEmbeddingWithFailover(w http.ResponseWriter, r *http.Request, userID, primaryProvider, model string, transformedBody []byte) {
+	ctx := r.Context()
+
+	err := h.routingHandler.ExecuteWithFailover(ctx, userID, model, primaryProvider, func(provider string, tok *token.Token) error {
+		accessToken, err := h.tokenResolver.DecryptToken(tok.AccessTokenEncrypted)
+		if err != nil {
+			return err
+		}
+
+		pipelineReq := &pipeline.Request{
+			HTTPRequest: r,
+			UserID:      userID,
+			Model:       model,
+			Provider:    provider,
+			Token:       accessToken,
+			Body:        transformedBody,
+			Stream:      false,
+		}
+
+		h.handleRequest(w, r, pipelineReq, provider)
+		return nil
+	})
+
+	if err != nil {
+		WriteError(w, http.StatusBadGateway, fmt.Sprintf("All providers failed: %v", err), "server_error")
+	}
 }

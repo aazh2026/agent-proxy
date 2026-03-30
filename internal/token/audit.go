@@ -2,7 +2,10 @@ package token
 
 import (
 	"database/sql"
+	"strings"
 	"time"
+
+	"github.com/openclaw/agent-proxy/internal/crypto"
 )
 
 type AuditLog struct {
@@ -25,12 +28,23 @@ func NewAuditStore(db *sql.DB) *AuditStore {
 }
 
 func (s *AuditStore) Log(action, tokenID, userID, details, ip, userAgent string) error {
+	maskedDetails := maskSensitiveData(details)
 	_, err := s.db.Exec(
 		`INSERT INTO audit_logs (token_id, user_id, action, details, ip, user_agent, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		tokenID, userID, action, details, ip, userAgent, time.Now(),
+		tokenID, userID, action, maskedDetails, ip, userAgent, time.Now(),
 	)
 	return err
+}
+
+func maskSensitiveData(data string) string {
+	if data == "" {
+		return data
+	}
+	data = crypto.MaskToken(data)
+	data = strings.ReplaceAll(data, "sk-", "sk-***")
+	data = strings.ReplaceAll(data, "sk-ant-", "sk-ant-***")
+	return data
 }
 
 func (s *AuditStore) GetLogsByToken(tokenID string, limit int) ([]*AuditLog, error) {

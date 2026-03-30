@@ -12,6 +12,7 @@ import (
 	"github.com/openclaw/agent-proxy/internal/auth"
 	"github.com/openclaw/agent-proxy/internal/pipeline"
 	"github.com/openclaw/agent-proxy/internal/provider"
+	"github.com/openclaw/agent-proxy/internal/routing"
 	"github.com/openclaw/agent-proxy/internal/token"
 )
 
@@ -19,13 +20,15 @@ type ChatCompletionsHandler struct {
 	forwardingStage *pipeline.ForwardingStage
 	streamingProxy  *pipeline.StreamingProxy
 	tokenResolver   *token.TokenResolver
+	routingHandler  *routing.RequestHandler
 }
 
-func NewChatCompletionsHandler(forwardingStage *pipeline.ForwardingStage, tokenResolver *token.TokenResolver) *ChatCompletionsHandler {
+func NewChatCompletionsHandler(forwardingStage *pipeline.ForwardingStage, tokenResolver *token.TokenResolver, routingHandler *routing.RequestHandler) *ChatCompletionsHandler {
 	return &ChatCompletionsHandler{
 		forwardingStage: forwardingStage,
 		streamingProxy:  pipeline.NewStreamingProxy(forwardingStage),
 		tokenResolver:   tokenResolver,
+		routingHandler:  routingHandler,
 	}
 }
 
@@ -63,18 +66,23 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	transformedBody, err := h.transformRequest(providerName, body)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to transform request", "server_error")
+		return
+	}
+
+	if h.routingHandler != nil {
+		h.handleWithFailover(w, r, userID, providerName, req.Model, transformedBody, req.Stream)
+		return
+	}
+
 	resolvedToken, err := h.tokenResolver.ResolveToken(userID, providerName, req.Model)
 	if err != nil {
 		WriteError(w, http.StatusUnauthorized, fmt.Sprintf("No available token for provider %s: %v", providerName, err), "authentication_error")
 		return
 	}
 	defer resolvedToken.Clear()
-
-	transformedBody, err := h.transformRequest(providerName, body)
-	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "Failed to transform request", "server_error")
-		return
-	}
 
 	pipelineReq := &pipeline.Request{
 		HTTPRequest: r,
@@ -216,4 +224,36 @@ func validateChatCompletionRequest(req *ChatCompletionRequest) error {
 	}
 
 	return nil
+}
+
+func (h *ChatCompletionsHandler) handleWithFailover(w http.ResponseWriter, r *http.Request, userID, primaryProvider, model string, transformedBody []byte, stream bool) {
+	ctx := r.Context()
+
+	err := h.routingHandler.ExecuteWithFailover(ctx, userID, model, primaryProvider, func(provider string, tok *token.Token) error {
+		accessToken, err := h.tokenResolver.DecryptToken(tok.AccessTokenEncrypted)
+		if err != nil {
+			return err
+		}
+
+		pipelineReq := &pipeline.Request{
+			HTTPRequest: r,
+			UserID:      userID,
+			Model:       model,
+			Provider:    provider,
+			Token:       accessToken,
+			Body:        transformedBody,
+			Stream:      stream,
+		}
+
+		if stream {
+			h.handleStreaming(w, r, pipelineReq)
+		} else {
+			h.handleNonStreaming(w, r, pipelineReq, provider)
+		}
+		return nil
+	})
+
+	if err != nil {
+		WriteError(w, http.StatusBadGateway, fmt.Sprintf("All providers failed: %v", err), "server_error")
+	}
 }
