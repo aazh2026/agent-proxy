@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/openclaw/agent-proxy/internal/auth"
+	"github.com/openclaw/agent-proxy/internal/config"
 	"github.com/openclaw/agent-proxy/internal/pipeline"
 	"github.com/openclaw/agent-proxy/internal/provider"
 	"github.com/openclaw/agent-proxy/internal/routing"
@@ -21,14 +22,18 @@ type ChatCompletionsHandler struct {
 	streamingProxy  *pipeline.StreamingProxy
 	tokenResolver   *token.TokenResolver
 	routingHandler  *routing.RequestHandler
+	defaultParams   map[string]interface{}
+	overrideParams  map[string]interface{}
 }
 
-func NewChatCompletionsHandler(forwardingStage *pipeline.ForwardingStage, tokenResolver *token.TokenResolver, routingHandler *routing.RequestHandler) *ChatCompletionsHandler {
+func NewChatCompletionsHandler(forwardingStage *pipeline.ForwardingStage, tokenResolver *token.TokenResolver, routingHandler *routing.RequestHandler, cfg *config.Config) *ChatCompletionsHandler {
 	return &ChatCompletionsHandler{
 		forwardingStage: forwardingStage,
 		streamingProxy:  pipeline.NewStreamingProxy(forwardingStage),
 		tokenResolver:   tokenResolver,
 		routingHandler:  routingHandler,
+		defaultParams:   cfg.Request.DefaultParams,
+		overrideParams:  cfg.Request.OverrideParams,
 	}
 }
 
@@ -54,6 +59,9 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		WriteError(w, http.StatusBadRequest, err.Error(), "invalid_request_error")
 		return
 	}
+
+	h.applyDefaultParams(&req)
+	h.applyOverrideParams(&req)
 
 	userID := auth.GetUserID(r.Context())
 	if userID == "" {
@@ -255,5 +263,49 @@ func (h *ChatCompletionsHandler) handleWithFailover(w http.ResponseWriter, r *ht
 
 	if err != nil {
 		WriteError(w, http.StatusBadGateway, fmt.Sprintf("All providers failed: %v", err), "server_error")
+	}
+}
+
+func (h *ChatCompletionsHandler) applyDefaultParams(req *ChatCompletionRequest) {
+	if h.defaultParams == nil {
+		return
+	}
+	for key, value := range h.defaultParams {
+		switch key {
+		case "temperature":
+			if req.Temperature == nil {
+				req.Temperature = value.(*float64)
+			}
+		case "top_p":
+			if req.TopP == nil {
+				req.TopP = value.(*float64)
+			}
+		case "max_tokens":
+			if req.MaxTokens == nil {
+				req.MaxTokens = value.(*int)
+			}
+		case "stream":
+			if !req.Stream {
+				req.Stream = value.(bool)
+			}
+		}
+	}
+}
+
+func (h *ChatCompletionsHandler) applyOverrideParams(req *ChatCompletionRequest) {
+	if h.overrideParams == nil {
+		return
+	}
+	for key, value := range h.overrideParams {
+		switch key {
+		case "temperature":
+			req.Temperature = value.(*float64)
+		case "top_p":
+			req.TopP = value.(*float64)
+		case "max_tokens":
+			req.MaxTokens = value.(*int)
+		case "stream":
+			req.Stream = value.(bool)
+		}
 	}
 }

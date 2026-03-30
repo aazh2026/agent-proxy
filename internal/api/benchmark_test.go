@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/openclaw/agent-proxy/internal/config"
 	"github.com/openclaw/agent-proxy/internal/pipeline"
 	"github.com/openclaw/agent-proxy/internal/routing"
 	"github.com/openclaw/agent-proxy/internal/token"
@@ -16,7 +17,10 @@ func BenchmarkChatCompletions(b *testing.B) {
 	tokenStore := &token.TokenStore{}
 	tokenResolver := token.NewTokenResolver(tokenStore, nil)
 	routingHandler := routing.NewRequestHandler(tokenResolver, 3, 100, 5000, routing.StrategyRoundRobin)
-	handler := NewChatCompletionsHandler(forwardingStage, tokenResolver, routingHandler)
+	cfg := &config.Config{
+		Request: config.RequestParamsConfig{},
+	}
+	handler := NewChatCompletionsHandler(forwardingStage, tokenResolver, routingHandler, cfg)
 
 	body := map[string]interface{}{
 		"model": "gpt-4",

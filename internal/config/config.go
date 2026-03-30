@@ -10,13 +10,19 @@ import (
 )
 
 type Config struct {
-	Server    ServerConfig    `yaml:"server"`
-	Auth      AuthConfig      `yaml:"auth"`
-	Token     TokenConfig     `yaml:"token"`
-	Routing   RoutingConfig   `yaml:"routing"`
-	Providers ProvidersConfig `yaml:"providers"`
-	Admin     AdminConfig     `yaml:"admin"`
-	Logging   LoggingConfig   `yaml:"logging"`
+	Server    ServerConfig        `yaml:"server"`
+	Auth      AuthConfig          `yaml:"auth"`
+	Token     TokenConfig         `yaml:"token"`
+	Routing   RoutingConfig       `yaml:"routing"`
+	Providers ProvidersConfig     `yaml:"providers"`
+	Admin     AdminConfig         `yaml:"admin"`
+	Logging   LoggingConfig       `yaml:"logging"`
+	Request   RequestParamsConfig `yaml:"request"`
+}
+
+type RequestParamsConfig struct {
+	DefaultParams  map[string]interface{} `yaml:"default_params"`
+	OverrideParams map[string]interface{} `yaml:"override_params"`
 }
 
 type ServerConfig struct {

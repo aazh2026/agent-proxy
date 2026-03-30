@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/openclaw/agent-proxy/internal/auth"
+	"github.com/openclaw/agent-proxy/internal/config"
 	"github.com/openclaw/agent-proxy/internal/crypto"
 	"github.com/openclaw/agent-proxy/internal/pipeline"
 	"github.com/openclaw/agent-proxy/internal/routing"
@@ -66,7 +67,10 @@ func TestChatCompletionsHandler_HandleRequest(t *testing.T) {
 	forwardingStage := pipeline.NewForwardingStage()
 	tokenResolver := token.NewTokenResolver(tokenStore, encryptor)
 	routingHandler := routing.NewRequestHandler(tokenResolver, 3, 100, 5000, routing.StrategyRoundRobin)
-	handler := NewChatCompletionsHandler(forwardingStage, tokenResolver, routingHandler)
+	cfg := &config.Config{
+		Request: config.RequestParamsConfig{},
+	}
+	handler := NewChatCompletionsHandler(forwardingStage, tokenResolver, routingHandler, cfg)
 
 	body := map[string]interface{}{
 		"model": "gpt-3.5-turbo",
