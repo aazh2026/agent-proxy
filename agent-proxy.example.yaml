@@ -44,7 +44,7 @@ providers:
 
 # Routing configuration
 routing:
-  token_strategy: "round-robin"  # Token selection strategy: round-robin, weighted, priority
+  token_strategy: "round-robin"  # Token selection strategy: round-robin, weighted, priority, cost-first
   cost_strategy: "quality-first"  # Model selection: quality-first, cost-first, latency-first, balanced
   model_mappings: {}  # Custom model mappings (model_name -> provider_config)
   retry_policy:
@@ -75,6 +75,24 @@ routing:
   user_preferences:
     alice:
       strategy: "cost-first"
+
+# Quota configuration (per-user limits)
+quota:
+  enabled: false  # Enable quota enforcement
+  exceeded_action: "block"  # Action when quota exceeded: block, warn, fallback
+  # Default limits for all users
+  default_limit:
+    period: "monthly"  # daily, weekly, monthly
+    tokens_limit: 1000000  # 1M tokens
+    cost_limit: 100.00  # USD
+    requests_limit: 10000
+  # Per-user quota overrides
+  user_quotas:
+    alice:
+      period: "monthly"
+      tokens_limit: 5000000
+      cost_limit: 500.00
+      requests_limit: 50000
 
 # Admin dashboard configuration
 admin:

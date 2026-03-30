@@ -19,6 +19,7 @@ type Config struct {
 	Logging     LoggingConfig       `yaml:"logging"`
 	Request     RequestParamsConfig `yaml:"request"`
 	ModelAccess ModelAccessConfig   `yaml:"model_access"`
+	Quota       QuotaConfig         `yaml:"quota"`
 }
 
 type ModelAccessConfig struct {
@@ -86,6 +87,20 @@ type RetryPolicyConfig struct {
 type AdminConfig struct {
 	Password  string `yaml:"password"`
 	LANAccess bool   `yaml:"lan_access"`
+}
+
+type QuotaConfig struct {
+	Enabled        bool                        `yaml:"enabled"`
+	DefaultLimit   QuotaLimitConfig            `yaml:"default_limit"`
+	ExceededAction string                      `yaml:"exceeded_action"`
+	UserQuotas     map[string]QuotaLimitConfig `yaml:"user_quotas"`
+}
+
+type QuotaLimitConfig struct {
+	Period        string  `yaml:"period"`
+	TokensLimit   int     `yaml:"tokens_limit"`
+	CostLimit     float64 `yaml:"cost_limit"`
+	RequestsLimit int     `yaml:"requests_limit"`
 }
 
 type LoggingConfig struct {
@@ -156,6 +171,10 @@ func DefaultConfig() *Config {
 				Timeout:  60,
 				MaxConns: 100,
 			},
+		},
+		Quota: QuotaConfig{
+			Enabled:        false,
+			ExceededAction: "block",
 		},
 	}
 }
