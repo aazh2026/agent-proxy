@@ -122,6 +122,16 @@ Analyze the current codebase against PRD.md requirements and implement the missi
 - [ ] Add similarity threshold config
 - [ ] Add cache stats API
 
+### Implementation Summary (Phase 2)
+
+| Feature | Status | Files Changed |
+|---------|--------|---------------|
+| Cost Matrix + Routing | ✅ Complete | config.go, selector.go, cost.go, example.yaml |
+| Per-User Quotas | ✅ Complete | config.go, example.yaml |
+| Semantic Cache | PENDING | (existing cache.go needs enhancement) |
+| A/B Testing | PENDING | - |
+| Parameter Override | PENDING | - |
+
 #### P2-1: A/B Testing [PENDING]
 - [ ] Add experiment config
 - [ ] Create traffic splitter with sticky assignment
